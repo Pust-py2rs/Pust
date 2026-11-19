@@ -1,0 +1,16 @@
+start: stmt+
+
+stmt: NAME "=" expr      -> assing
+    | "print" "(" expr ")" -> printing
+
+?expr: expr "+" term     -> add
+     | term
+
+?term: NUMBER            -> num
+     | NAME              -> name
+     | "(" expr ")"
+
+%import common.CNAME -> NAME
+%import common.NUMBER
+%import common.WS
+%ignore WS
