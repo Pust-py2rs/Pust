@@ -13,6 +13,7 @@ parser = Lark.open(
 def indent(text):
     return "\n".join("    " + line for line in text.split("\n"))
 
+
 def find_variadic(tree):
     """Map function name -> number of fixed params, for every def that has *args."""
     result = {}
@@ -26,6 +27,7 @@ def find_variadic(tree):
                 result[str(name)] = len(kinds) - 1
     return result
 
+
 RUST_CMP = {"<": "<", ">": ">", "==": "==", ">=": ">=", "<=": "<=", "!=": "!="}
 
 
@@ -35,7 +37,7 @@ class Pust(Transformer):
         super().__init__()
         self.missings = {}
         self.variadic = variadic or {}
-        
+
     # ---------- helpers ----------
 
     def chain(self, *c, mode=0):
@@ -99,6 +101,9 @@ class Pust(Transformer):
 
     def number(self, n):
         return str(n)
+
+    def getitem(self,name,index):
+        return f"{name}[{index}]"
 
     # ---------- arithmetic ----------
 
@@ -184,7 +189,6 @@ class Pust(Transformer):
     def expr_stmt(self, val):
         return val
 
-    
     def funccall(self, name, args=None):
         args = args or []
         fixed = self.variadic.get(str(name))
@@ -197,7 +201,7 @@ class Pust(Transformer):
         return f"return {returnval};"
 
     def arguments(self, *c):
-        return list(c) 
+        return list(c)
 
     def typedparam(self, *c):
         if len(c) == 2:
@@ -205,7 +209,7 @@ class Pust(Transformer):
 
     def parameters(self, *c):
         return self.chain(*c, mode=2)
-    
+
     def starparam(self, param):
         name, type_ = param.split(":", 1)
         return f"{name}: &[{type_.strip()}]"
@@ -236,10 +240,10 @@ def main():
         y = (x >> 2) ^ y << x
         x = y * 2
         y = 2+2*2
-    test(0xDEADBEEF,1,2,3,4)
+    test(0xBEEF,1,2,3,4)
 
 def test(b:i64,c:i64,*d:u64) -> i64:
-    return a + b
+    return a + b * d[0 + 1]
 """
 
 tree = parser.parse(code)
