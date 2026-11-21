@@ -221,6 +221,10 @@ class Pust(Transformer):
         if any(x is not None for x in c):
             self.notimp("parameters after *args are not supported")
 
+    # ---------- external features ----------
+    def loop_stmt(self, body):
+        return f"loop {{\n{indent(body)}\n}}"
+
     # ---------- fallback / missing rules ----------
 
     def __default__(self, data, children, meta):
@@ -241,11 +245,13 @@ def main():
         x = y * 2
         y = 2+2*2
     test(0xBEEF,1,2,3,4)
+    loop:
+        x = x + x
+
 
 def test(b:i64,c:i64,*d:u64) -> i64:
     return a + b * d[0 + 1]
 """
-
 tree = parser.parse(code)
 p = Pust(variadic=find_variadic(tree))
 out = p.transform(tree)

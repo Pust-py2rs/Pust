@@ -86,12 +86,14 @@ assert_stmt: "assert" test ["," test]
 
 ?compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | match_stmt
               | with_stmt | funcdef | classdef | decorated | async_stmt
+              | loop_stmt
 async_stmt: "async" (funcdef | with_stmt | for_stmt)
 if_stmt: "if" test ":" suite elifs ["else" ":" suite]
 elifs: elif_*
 elif_: "elif" test ":" suite
 while_stmt: "while" test ":" suite ["else" ":" suite]
 for_stmt: "for" exprlist "in" testlist ":" suite ["else" ":" suite]
+loop_stmt: "loop" ":" suite
 try_stmt: "try" ":" suite except_clauses ["else" ":" suite] [finally]
         | "try" ":" suite finally   -> try_finally
 finally: "finally" ":" suite
