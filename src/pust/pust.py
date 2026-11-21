@@ -13,23 +13,56 @@ parser = Lark.open(
 def indent(text):
     return "\n".join("    " + line for line in text.split("\n"))
 
+def find_variadic(tree):
+    """Map function name -> number of fixed params, for every def that has *args."""
+    result = {}
+    for node in tree.iter_subtrees():
+        if node.data == "funcdef":
+            name, params = node.children[0].children[0], node.children[1]
+            if params is None:
+                continue
+            kinds = [c.data for c in params.children if isinstance(c, Tree)]
+            if "starparams" in kinds:
+                result[str(name)] = len(kinds) - 1
+    return result
 
 RUST_CMP = {"<": "<", ">": ">", "==": "==", ">=": ">=", "<=": "<=", "!=": "!="}
 
 
 @v_args(inline=True)
 class Pust(Transformer):
-    def __init__(self) -> None:
+    def __init__(self, variadic=None) -> None:
         super().__init__()
         self.missings = {}
-
+        self.variadic = variadic or {}
+        
     # ---------- helpers ----------
 
-    def chain(self, *c):
-        result = c[0]
-        for i in range(1, len(c), 2):
-            result = f"({result} {c[i]} {c[i + 1]})"
-        return result
+    def chain(self, *c, mode=0):
+        if mode == 0:
+            try:
+                result = c[0]
+                for i in range(1, len(c), 2):
+                    result = f"{result} {c[i]} {c[i + 1]}"
+                return result
+            except IndexError:
+                print(f"Out of Index using safe mod: {c}")
+                result = c[0]
+                for i in range(1, len(c)):
+                    result = f"{result} {c[i]}"
+                return result
+        elif mode == 1:
+            result = c[0]
+            for i in range(1, len(c)):
+                result = f"{result}, {c[i]}"
+            return result
+        elif mode == 2:
+            result = c[0]
+            for i in range(1, len(c)):
+                if c[i] == None:
+                    continue
+                result = f"{result}, {c[i]}"
+            return result
 
     def notimp(self, msg):
         raise NotImplementedError(msg)
@@ -70,10 +103,10 @@ class Pust(Transformer):
     # ---------- arithmetic ----------
 
     def arith_expr(self, *c):
-        return self.chain(*c)  # +  -
+        return f"({self.chain(*c)})"  # +  -
 
     def term(self, *c):
-        return self.chain(*c)  # *  /  %  //
+        return f"({self.chain(*c)})"  # *  /  %  //
 
     def power(self, val, val2):
         self.notimp("\n' ** ' ( power )\n has no direct equivalent")
@@ -91,7 +124,7 @@ class Pust(Transformer):
 
     # ---------- SHIFT ----------
     def shift_expr(self, *c):
-        return self.chain(*c)
+        return f"({self.chain(*c)})"
 
     # ---------- logical operators ----------
 
@@ -141,8 +174,7 @@ class Pust(Transformer):
     def funcdef(self, name, args, returntype, code):
         if args == None:
             args = ""
-        else:
-            self.notimp("Sorry no function arg support yet")
+
         if returntype == None:
             returntype = ""
         else:
@@ -152,14 +184,38 @@ class Pust(Transformer):
     def expr_stmt(self, val):
         return val
 
-    def funccall(self, name, args):
-        if args == None:
-            return f"{name}();"
-        else:
-            return f"{name}({args});"
+    
+    def funccall(self, name, args=None):
+        args = args or []
+        fixed = self.variadic.get(str(name))
+        if fixed is not None:
+            rest = ", ".join(map(str, args[fixed:]))
+            args = args[:fixed] + [f"&[{rest}]"]
+        return f"{name}({', '.join(map(str, args))})"
 
     def return_stmt(self, returnval):
         return f"return {returnval};"
+
+    def arguments(self, *c):
+        return list(c) 
+
+    def typedparam(self, *c):
+        if len(c) == 2:
+            return f"{c[0]}:{c[1]}"
+
+    def parameters(self, *c):
+        return self.chain(*c, mode=2)
+    
+    def starparam(self, param):
+        name, type_ = param.split(":", 1)
+        return f"{name}: &[{type_.strip()}]"
+
+    def starparams(self, star, post):
+        return star
+
+    def poststarparams(self, *c):
+        if any(x is not None for x in c):
+            self.notimp("parameters after *args are not supported")
 
     # ---------- fallback / missing rules ----------
 
@@ -179,14 +235,15 @@ def main():
         x = y ^ x * 2
         y = (x >> 2) ^ y << x
         x = y * 2
-    test()
+        y = 2+2*2
+    test(0xDEADBEEF,1,2,3,4)
 
-def test() -> i64:
-    return 0xDEADBEEF
+def test(b:i64,c:i64,*d:u64) -> i64:
+    return a + b
 """
 
 tree = parser.parse(code)
-p = Pust()
+p = Pust(variadic=find_variadic(tree))
 out = p.transform(tree)
 print(out)
 print(f"\n\nunknowns: {p.missings}")
