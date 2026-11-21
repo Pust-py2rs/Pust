@@ -31,6 +31,9 @@ class Pust(Transformer):
             result = f"({result} {c[i]} {c[i + 1]})"
         return result
 
+    def notimp(self, msg):
+        raise NotImplementedError(msg)
+
     # ---------- assignment ----------
 
     def annassign(self, target, type_, val):
@@ -73,7 +76,7 @@ class Pust(Transformer):
         return self.chain(*c)  # *  /  %  //
 
     def power(self, val, val2):
-        raise NotImplementedError("\n' ** ' ( power )\n has no direct equivalent")
+        self.notimp("\n' ** ' ( power )\n has no direct equivalent")
 
     # ---------- BITWISE ----------
 
@@ -106,7 +109,7 @@ class Pust(Transformer):
     def comp_op(self, *ops):
         op = " ".join(map(str, ops))
         if op not in RUST_CMP:
-            raise NotImplementedError(f"'{op}' has no Rust equivalent")
+            self.notimp(f"'{op}' has no Rust equivalent")
         return RUST_CMP[op]
 
     def comparison(self, first, *rest):
@@ -133,6 +136,31 @@ class Pust(Transformer):
             out += f" else {{\n{indent(else_body)}\n}}"
         return out
 
+    # ---------- FUNC ----------
+
+    def funcdef(self, name, args, returntype, code):
+        if args == None:
+            args = ""
+        else:
+            self.notimp("Sorry no function arg support yet")
+        if returntype == None:
+            returntype = ""
+        else:
+            return f"fn {name}({args}) -> {returntype}" + "{\n" + f"{code}" + "\n}"
+        return f"fn {name}({args})" + "{\n" + f"{code}" + "\n}"
+
+    def expr_stmt(self, val):
+        return val
+
+    def funccall(self, name, args):
+        if args == None:
+            return f"{name}();"
+        else:
+            return f"{name}({args});"
+
+    def return_stmt(self, returnval):
+        return f"return {returnval};"
+
     # ---------- fallback / missing rules ----------
 
     def __default__(self, data, children, meta):
@@ -141,15 +169,20 @@ class Pust(Transformer):
 
 
 code = """
-x: int32 = 10
-y: int32 = 20
+def main():
+    x: i32 = 10
+    y: i32 = 20
 
-if x == 10 or y == 20:
-    x = 2 | 4
-    y = x & y
-    x = y ^ x * 2
-    y = (x >> 2) ^ y << x
-    x = y ** 2
+    if x == 10 or y == 20:
+        x = 2 | 4
+        y = x & y
+        x = y ^ x * 2
+        y = (x >> 2) ^ y << x
+        x = y * 2
+    test()
+
+def test() -> i64:
+    return 0xDEADBEEF
 """
 
 tree = parser.parse(code)
